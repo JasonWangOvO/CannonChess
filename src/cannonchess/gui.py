@@ -10,6 +10,7 @@ from .agents import HeuristicAgent
 from .core import (
     EMPTY,
     OBSTACLE,
+    FRUIT,
     PLAYER_A,
     PLAYER_B,
     DRAW_NO_CAPTURE_TURNS,
@@ -27,6 +28,7 @@ BOARD_PADDING = 18
 KLEIN_BLUE = "#002FA7"
 BURGUNDY_RED = "#800020"
 OBSTACLE_BROWN = "#614124"
+FRUIT_PINK = "#A94064"
 HINT_YELLOW = "#F7E38A"
 BACKGROUND = "#F3F4F6"
 GRID_LINE = "#B8BEC9"
@@ -35,6 +37,9 @@ RULES_HELP_TEXT = """移动规则：
 
 吃子规则：
 只有本次移动的棋子与另一颗己方棋子上下或左右相邻成线时，才会尝试吃掉这条线延长方向一格的敌方棋子。静态成线不会因其他棋子移动而吃子。敌方棋子背后一格如果有棋子或障碍，则不会被吃掉。
+
+果实规则：
+樱桃粉色的 ^_^ 果实可以像棋子一样被炮吃掉。吃掉果实的一方会在己方半区靠边位置生成一颗己方棋子。
 
 胜利规则：
 当一方棋子数量少于 2 时，该方失败，对方胜利。连续 200 回合没有吃子则平局。"""
@@ -259,6 +264,17 @@ class CannonChessApp(tk.Tk):
         if cell == OBSTACLE:
             self.canvas.create_rectangle(
                 left + 10, top + 10, right - 10, bottom - 10, fill=OBSTACLE_BROWN, outline="#111111", width=2
+            )
+        if cell == FRUIT:
+            self.canvas.create_rectangle(
+                left + 10, top + 10, right - 10, bottom - 10, fill=FRUIT_PINK, outline=""
+            )
+            self.canvas.create_text(
+                (left + right) / 2,
+                (top + bottom) / 2,
+                text="^_^",
+                fill="#FFFFFF",
+                font=("Arial", 13, "bold"),
             )
         if cell in (PLAYER_A, PLAYER_B):
             color = KLEIN_BLUE if cell == PLAYER_A else BURGUNDY_RED

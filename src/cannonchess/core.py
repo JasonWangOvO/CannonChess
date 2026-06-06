@@ -14,6 +14,7 @@ EMPTY = 0
 PLAYER_A = 1
 PLAYER_B = 2
 OBSTACLE = 3
+FRUIT = 4
 DRAW_NO_CAPTURE_TURNS = 200
 
 Coord = tuple[int, int]
@@ -85,6 +86,10 @@ def create_new_game(config: GameConfig | None = None) -> GameState:
     for x, y in _choose_obstacles(width, height, obstacle_count, rng):
         grid[y][x] = OBSTACLE
 
+    fruit = _choose_fruit_cell(grid, rng)
+    if fruit is not None:
+        grid[fruit[1]][fruit[0]] = FRUIT
+
     piece_count = min(width, height) + 1
     for x, y in _choose_start_cells(grid, piece_count, top=True, rng=rng):
         grid[y][x] = PLAYER_A
@@ -139,8 +144,13 @@ def apply_move(state: GameState, move: Move) -> GameState:
     grid[dy][dx] = player
 
     captured = _captured_after_move(grid, player, move.dst)
+    fruit_captured = any(grid[y][x] == FRUIT for x, y in captured)
     for x, y in captured:
         grid[y][x] = EMPTY
+    if fruit_captured:
+        spawn = _choose_spawn_cell(grid, player)
+        if spawn is not None:
+            grid[spawn[1]][spawn[0]] = player
 
     next_state = replace(
         state,
@@ -216,11 +226,18 @@ def _captured_after_move(grid: list[list[int]], player: int, moved_to: Coord) ->
                 continue
             if grid[ny][nx] != player:
                 continue
-            tx, ty = x - side * ax, y - side * ay
-            bx, by = x - 2 * side * ax, y - 2 * side * ay
-            blocked_behind_target = 0 <= bx < width and 0 <= by < height and grid[by][bx] != EMPTY
-            if 0 <= tx < width and 0 <= ty < height and grid[ty][tx] == enemy and not blocked_behind_target:
-                captured.add((tx, ty))
+            pair_targets = (
+                (x - side * ax, y - side * ay, x - 2 * side * ax, y - 2 * side * ay),
+                (nx + side * ax, ny + side * ay, nx + 2 * side * ax, ny + 2 * side * ay),
+            )
+            for tx, ty, bx, by in pair_targets:
+                if not (0 <= tx < width and 0 <= ty < height):
+                    continue
+                blocked_behind_target = (
+                    0 <= bx < width and 0 <= by < height and grid[by][bx] != EMPTY
+                )
+                if grid[ty][tx] in (enemy, FRUIT) and not blocked_behind_target:
+                    captured.add((tx, ty))
     return captured
 
 
@@ -268,6 +285,40 @@ def _choose_start_cells(grid: list[list[int]], piece_count: int, *, top: bool, r
             if len(selected) == piece_count:
                 return tuple(selected)
     raise ValueError("not enough empty cells for starting pieces")
+
+
+def _choose_fruit_cell(grid: list[list[int]], rng: random.Random) -> Coord | None:
+    height = len(grid)
+    width = len(grid[0])
+    center_x = (width - 1) / 2
+    center_y = (height - 1) / 2
+    cells = [(x, y) for y in range(height) for x in range(width) if grid[y][x] == EMPTY]
+    if not cells:
+        return None
+    rng.shuffle(cells)
+    return min(
+        cells,
+        key=lambda cell: (
+            abs(cell[0] - center_x) + abs(cell[1] - center_y),
+            abs(cell[0] - center_x),
+            abs(cell[1] - center_y),
+        ),
+    )
+
+
+def _choose_spawn_cell(grid: list[list[int]], player: int) -> Coord | None:
+    height = len(grid)
+    width = len(grid[0])
+    rows = range(height - 1, -1, -1) if player == PLAYER_A else range(height)
+    own_half = set(range(height // 2, height)) if player == PLAYER_A else set(range(0, height // 2))
+    center_x = (width - 1) / 2
+    for y in rows:
+        if y not in own_half:
+            continue
+        candidates = [(x, y) for x in range(width) if grid[y][x] == EMPTY]
+        if candidates:
+            return min(candidates, key=lambda cell: abs(cell[0] - center_x))
+    return None
 
 
 def _touching(a: Coord, b: Coord) -> bool:

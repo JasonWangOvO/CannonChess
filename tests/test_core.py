@@ -3,6 +3,7 @@ import unittest
 from cannonchess.core import (
     EMPTY,
     OBSTACLE,
+    FRUIT,
     PLAYER_A,
     PLAYER_B,
     DRAW_NO_CAPTURE_TURNS,
@@ -57,6 +58,23 @@ class CoreRulesTest(unittest.TestCase):
 
         self.assertEqual(next_state.cell((1, 2)), EMPTY)
         self.assertEqual(len(piece_positions(next_state, PLAYER_A)), 0)
+        self.assertEqual(next_state.winner, PLAYER_B)
+
+    def test_moved_piece_can_capture_when_it_is_back_piece_of_pair(self):
+        state = state_from_top_rows(
+            [
+                [EMPTY, PLAYER_A, EMPTY],
+                [EMPTY, PLAYER_B, EMPTY],
+                [EMPTY, EMPTY, EMPTY],
+                [EMPTY, PLAYER_B, EMPTY],
+            ],
+            current=PLAYER_B,
+        )
+
+        next_state = apply_move(state, Move((1, 0), (1, 1)))
+
+        self.assertEqual(next_state.cell((1, 3)), EMPTY)
+        self.assertEqual(next_state.last_captured, ((1, 3),))
         self.assertEqual(next_state.winner, PLAYER_B)
 
     def test_capture_distance_is_exactly_one_cell_beyond_pair(self):
@@ -176,7 +194,7 @@ class CoreRulesTest(unittest.TestCase):
         self.assertEqual(len(piece_positions(state, PLAYER_B)), 6)
         self.assertIn(state.current_player, (PLAYER_A, PLAYER_B))
         cells = {cell for row in state.grid for cell in row}
-        self.assertLessEqual(cells, {EMPTY, PLAYER_A, PLAYER_B, OBSTACLE})
+        self.assertLessEqual(cells, {EMPTY, PLAYER_A, PLAYER_B, OBSTACLE, FRUIT})
 
     def test_default_new_game_uses_random_required_board_size(self):
         state = create_new_game(GameConfig(seed=2))
@@ -220,6 +238,48 @@ class CoreRulesTest(unittest.TestCase):
                 self.assertFalse(
                     abs(first[0] - second[0]) <= 1 and abs(first[1] - second[1]) <= 1
                 )
+
+    def test_new_game_places_one_fruit_near_center(self):
+        state = create_new_game(GameConfig(width=7, height=7, seed=8))
+        fruits = [
+            (x, y)
+            for y in range(state.height)
+            for x in range(state.width)
+            if state.cell((x, y)) == FRUIT
+        ]
+
+        self.assertEqual(len(fruits), 1)
+        fruit = fruits[0]
+        self.assertLessEqual(abs(fruit[0] - 3) + abs(fruit[1] - 3), 2)
+
+    def test_piece_cannot_move_directly_onto_fruit(self):
+        state = state_from_top_rows(
+            [
+                [EMPTY, EMPTY, EMPTY],
+                [EMPTY, FRUIT, EMPTY],
+                [EMPTY, PLAYER_A, EMPTY],
+            ],
+            current=PLAYER_A,
+        )
+
+        self.assertFalse(is_legal_move(state, Move((1, 0), (1, 1))))
+
+    def test_capturing_fruit_spawns_piece_for_capturing_player(self):
+        state = state_from_top_rows(
+            [
+                [EMPTY, EMPTY, EMPTY],
+                [EMPTY, FRUIT, EMPTY],
+                [PLAYER_B, EMPTY, EMPTY],
+                [EMPTY, PLAYER_B, EMPTY],
+            ],
+            current=PLAYER_B,
+        )
+
+        next_state = apply_move(state, Move((0, 1), (1, 1)))
+
+        self.assertEqual(next_state.cell((1, 2)), EMPTY)
+        self.assertEqual(len(piece_positions(next_state, PLAYER_B)), 3)
+        self.assertEqual(next_state.no_capture_turns, 0)
 
 
 if __name__ == "__main__":
