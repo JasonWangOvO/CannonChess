@@ -14,7 +14,7 @@ EMPTY = 0
 PLAYER_A = 1
 PLAYER_B = 2
 OBSTACLE = 3
-DRAW_NO_CAPTURE_TURNS = 50
+DRAW_NO_CAPTURE_TURNS = 200
 
 Coord = tuple[int, int]
 DIRECTIONS: tuple[Coord, ...] = ((1, 0), (-1, 0), (0, 1), (0, -1))
@@ -92,12 +92,7 @@ def create_new_game(config: GameConfig | None = None) -> GameState:
         grid[y][x] = PLAYER_B
 
     current_player = rng.choice((PLAYER_A, PLAYER_B))
-    return GameState(
-        width=width,
-        height=height,
-        grid=_freeze_grid(grid),
-        current_player=current_player,
-    )
+    return GameState(width=width, height=height, grid=_freeze_grid(grid), current_player=current_player)
 
 
 def legal_moves(state: GameState, player: int | None = None) -> tuple[Move, ...]:
@@ -207,9 +202,7 @@ def _with_game_result(state: GameState) -> GameState:
     return state
 
 
-def _captured_after_move(
-    grid: list[list[int]], player: int, moved_to: Coord
-) -> set[Coord]:
+def _captured_after_move(grid: list[list[int]], player: int, moved_to: Coord) -> set[Coord]:
     enemy = opponent(player)
     height = len(grid)
     width = len(grid[0])
@@ -225,36 +218,44 @@ def _captured_after_move(
                 continue
             tx, ty = x - side * ax, y - side * ay
             bx, by = x - 2 * side * ax, y - 2 * side * ay
-            blocked_behind_target = (
-                0 <= bx < width and 0 <= by < height and grid[by][bx] != EMPTY
-            )
-            if (
-                0 <= tx < width
-                and 0 <= ty < height
-                and grid[ty][tx] == enemy
-                and not blocked_behind_target
-            ):
+            blocked_behind_target = 0 <= bx < width and 0 <= by < height and grid[by][bx] != EMPTY
+            if 0 <= tx < width and 0 <= ty < height and grid[ty][tx] == enemy and not blocked_behind_target:
                 captured.add((tx, ty))
     return captured
 
 
-def _choose_obstacles(
-    width: int, height: int, count: int, rng: random.Random
-) -> tuple[Coord, ...]:
-    cells = [(x, y) for y in range(height) for x in range(width)]
-    rng.shuffle(cells)
+def _choose_obstacles(width: int, height: int, count: int, rng: random.Random) -> tuple[Coord, ...]:
     obstacles: list[Coord] = []
-    for cell in cells:
-        if len(obstacles) >= count:
-            break
-        if all(not _touching(cell, existing) for existing in obstacles):
-            obstacles.append(cell)
+    lower_rows = range(0, height // 2)
+    upper_rows = range(height // 2, height)
+    lower_target = count // 2
+    upper_target = count - lower_target
+
+    obstacles.extend(_choose_obstacles_from_rows(width, lower_rows, lower_target, rng, obstacles))
+    obstacles.extend(_choose_obstacles_from_rows(width, upper_rows, upper_target, rng, obstacles))
+
+    if len(obstacles) < count:
+        all_rows = range(height)
+        needed = count - len(obstacles)
+        obstacles.extend(_choose_obstacles_from_rows(width, all_rows, needed, rng, obstacles))
     return tuple(obstacles)
 
 
-def _choose_start_cells(
-    grid: list[list[int]], piece_count: int, *, top: bool, rng: random.Random
-) -> tuple[Coord, ...]:
+def _choose_obstacles_from_rows(
+    width: int, rows: range, count: int, rng: random.Random, existing: list[Coord]
+) -> list[Coord]:
+    cells = [(x, y) for y in rows for x in range(width)]
+    rng.shuffle(cells)
+    selected: list[Coord] = []
+    for cell in cells:
+        if len(selected) >= count:
+            break
+        if all(not _touching(cell, obstacle) for obstacle in existing + selected):
+            selected.append(cell)
+    return selected
+
+
+def _choose_start_cells(grid: list[list[int]], piece_count: int, *, top: bool, rng: random.Random) -> tuple[Coord, ...]:
     height = len(grid)
     width = len(grid[0])
     rows = range(height - 1, -1, -1) if top else range(height)

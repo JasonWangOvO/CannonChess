@@ -189,6 +189,38 @@ class CoreRulesTest(unittest.TestCase):
         self.assertEqual(len(piece_positions(state, PLAYER_A)), expected_count)
         self.assertEqual(len(piece_positions(state, PLAYER_B)), expected_count)
 
+    def test_obstacles_are_balanced_between_upper_and_lower_halves(self):
+        state = create_new_game(GameConfig(width=10, height=10, seed=3))
+        lower_count = sum(
+            1
+            for y in range(0, state.height // 2)
+            for x in range(state.width)
+            if state.cell((x, y)) == OBSTACLE
+        )
+        upper_count = sum(
+            1
+            for y in range(state.height // 2, state.height)
+            for x in range(state.width)
+            if state.cell((x, y)) == OBSTACLE
+        )
+
+        self.assertLessEqual(abs(lower_count - upper_count), 1)
+
+    def test_obstacles_do_not_touch_after_balanced_generation(self):
+        state = create_new_game(GameConfig(width=10, height=10, seed=5))
+        obstacles = [
+            (x, y)
+            for y in range(state.height)
+            for x in range(state.width)
+            if state.cell((x, y)) == OBSTACLE
+        ]
+
+        for index, first in enumerate(obstacles):
+            for second in obstacles[index + 1 :]:
+                self.assertFalse(
+                    abs(first[0] - second[0]) <= 1 and abs(first[1] - second[1]) <= 1
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

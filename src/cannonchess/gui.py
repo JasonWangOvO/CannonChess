@@ -30,6 +30,14 @@ OBSTACLE_BROWN = "#614124"
 HINT_YELLOW = "#F7E38A"
 BACKGROUND = "#F3F4F6"
 GRID_LINE = "#B8BEC9"
+RULES_HELP_TEXT = """移动规则：
+每回合移动一颗己方棋子一格，只能上下左右移动，不能斜走，也不能移动到棋子或障碍物上。
+
+吃子规则：
+只有本次移动的棋子与另一颗己方棋子上下或左右相邻成线时，才会尝试吃掉这条线延长方向一格的敌方棋子。静态成线不会因其他棋子移动而吃子。敌方棋子背后一格如果有棋子或障碍，则不会被吃掉。
+
+胜利规则：
+当一方棋子数量少于 2 时，该方失败，对方胜利。连续 200 回合没有吃子则平局。"""
 
 
 @dataclass
@@ -113,6 +121,7 @@ class CannonChessApp(tk.Tk):
         self.status.pack(side="left")
         tk.Button(top, text="悔棋", command=self.undo).pack(side="left", padx=3)
         tk.Button(top, text="投降", command=self.surrender).pack(side="left", padx=3)
+        tk.Button(top, text="规则", command=self.show_rules).pack(side="left", padx=3)
         tk.Button(top, text="重新开始", command=self.restart_current_game).pack(side="left", padx=3)
         tk.Button(top, text="返回模式", command=self._show_mode_select).pack(side="left", padx=3)
 
@@ -154,6 +163,9 @@ class CannonChessApp(tk.Tk):
         )
         self.selected = None
         self.renderer.render(self.state_obj)
+
+    def show_rules(self) -> None:
+        messagebox.showinfo("游戏规则", RULES_HELP_TEXT)
 
     def on_click(self, event: tk.Event[tk.Canvas]) -> None:
         state = self.state_obj
