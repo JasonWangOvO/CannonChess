@@ -11,6 +11,7 @@ from .core import (
     Move,
     create_new_game,
 )
+from .agents import HeuristicAgent, PlayerAgent
 
 __all__ = [
     "EMPTY",
@@ -22,4 +23,6 @@ __all__ = [
     "GameState",
     "Move",
     "create_new_game",
+    "HeuristicAgent",
+    "PlayerAgent",
 ]

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import tkinter as tk
 from tkinter import messagebox
 
+from .agents import HeuristicAgent
 from .core import (
     EMPTY,
     OBSTACLE,
@@ -53,6 +54,8 @@ class CannonChessApp(tk.Tk):
         self.initial_state: GameState | None = None
         self.history: list[GameState] = []
         self.selected: tuple[int, int] | None = None
+        self.ai_agent: HeuristicAgent | None = None
+        self.human_player = PLAYER_A
         self.renderer = GameRenderer(self)
         self._show_mode_select()
 
@@ -67,14 +70,25 @@ class CannonChessApp(tk.Tk):
 
         tk.Button(frame, text="双人本地对战", width=24, command=self.start_local_game).pack(anchor="w", pady=5)
         tk.Button(frame, text="双人远程游玩（预留）", width=24, state="disabled").pack(anchor="w", pady=5)
-        tk.Button(frame, text="单人 AI 对战（预留）", width=24, state="disabled").pack(anchor="w", pady=5)
+        tk.Button(frame, text="单人 AI 对战", width=24, command=self.start_ai_game).pack(anchor="w", pady=5)
 
     def start_local_game(self) -> None:
+        self.ai_agent = None
         self.initial_state = create_new_game(GameConfig())
         self.state_obj = self.initial_state
         self.history = []
         self.selected = None
         self._show_game()
+
+    def start_ai_game(self) -> None:
+        self.human_player = PLAYER_A
+        self.ai_agent = HeuristicAgent(player=PLAYER_B, max_depth=2, candidate_limit=10)
+        self.initial_state = create_new_game(GameConfig())
+        self.state_obj = self.initial_state
+        self.history = []
+        self.selected = None
+        self._show_game()
+        self._schedule_ai_move()
 
     def restart_current_game(self) -> None:
         if self.initial_state is None:
@@ -84,6 +98,7 @@ class CannonChessApp(tk.Tk):
         self.history = []
         self.selected = None
         self._show_game()
+        self._schedule_ai_move()
 
     def _show_game(self) -> None:
         self._clear()
@@ -113,7 +128,11 @@ class CannonChessApp(tk.Tk):
         if not self.history:
             messagebox.showinfo("悔棋", "当前没有可撤销的走法。")
             return
-        self.state_obj = self.history.pop()
+        if self.ai_agent is not None and len(self.history) >= 2:
+            self.history.pop()
+            self.state_obj = self.history.pop()
+        else:
+            self.state_obj = self.history.pop()
         self.selected = None
         self.renderer.render(self.state_obj)
 
@@ -139,6 +158,8 @@ class CannonChessApp(tk.Tk):
     def on_click(self, event: tk.Event[tk.Canvas]) -> None:
         state = self.state_obj
         if state is None or state.winner is not None or state.draw:
+            return
+        if self.ai_agent is not None and state.current_player != self.human_player:
             return
         coord = self._pixel_to_coord(event.x, event.y, state)
         if coord is None:
@@ -167,6 +188,39 @@ class CannonChessApp(tk.Tk):
         self.state_obj = next_state
         self.selected = None
         self.renderer.render(next_state)
+        self._schedule_ai_move()
+
+    def _schedule_ai_move(self) -> None:
+        state = self.state_obj
+        if (
+            self.ai_agent is None
+            or state is None
+            or state.winner is not None
+            or state.draw
+            or state.current_player != self.ai_agent.player
+        ):
+            return
+        self.after(250, self._perform_ai_move)
+
+    def _perform_ai_move(self) -> None:
+        state = self.state_obj
+        if (
+            self.ai_agent is None
+            or state is None
+            or state.winner is not None
+            or state.draw
+            or state.current_player != self.ai_agent.player
+        ):
+            return
+        moves = legal_moves(state, self.ai_agent.player)
+        if not moves:
+            return
+        move = self.ai_agent.choose_move(state)
+        self.history.append(state)
+        self.state_obj = apply_move(state, move)
+        self.selected = None
+        self.renderer.render(self.state_obj)
+        self._schedule_ai_move()
 
     def render_board(self, state: GameState) -> None:
         self.canvas.delete("all")
@@ -215,8 +269,9 @@ class CannonChessApp(tk.Tk):
         elif state.draw:
             text = f"平局  A:{a_count} B:{b_count}"
         else:
+            mode = "AI 对战" if self.ai_agent is not None else "本地双人"
             text = (
-                f"当前回合：{player_name(state.current_player)} 方  "
+                f"{mode}  当前回合：{player_name(state.current_player)} 方  "
                 f"A:{a_count} B:{b_count}  "
                 f"无吃子回合:{state.no_capture_turns}/{DRAW_NO_CAPTURE_TURNS}"
             )
