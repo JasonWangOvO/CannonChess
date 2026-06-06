@@ -142,6 +142,21 @@ class CoreRulesTest(unittest.TestCase):
         self.assertEqual(next_state.cell((1, 1)), PLAYER_B)
         self.assertEqual(next_state.last_captured, ())
 
+    def test_enemy_piece_behind_target_does_not_defend_target(self):
+        state = state_from_top_rows(
+            [
+                [EMPTY, EMPTY, PLAYER_A, EMPTY],
+                [PLAYER_A, PLAYER_B, EMPTY, PLAYER_A],
+                [EMPTY, EMPTY, EMPTY, EMPTY],
+            ],
+            current=PLAYER_A,
+        )
+
+        next_state = apply_move(state, Move((2, 2), (2, 1)))
+
+        self.assertEqual(next_state.cell((1, 1)), EMPTY)
+        self.assertEqual(next_state.last_captured, ((1, 1),))
+
     def test_draw_after_fifty_moves_without_capture(self):
         state = state_from_top_rows(
             [

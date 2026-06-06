@@ -28,3 +28,4 @@ codex-*.log
 conversation*.md
 chat*.md
 CannonChess.spec
+dist

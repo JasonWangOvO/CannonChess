@@ -233,12 +233,28 @@ def _captured_after_move(grid: list[list[int]], player: int, moved_to: Coord) ->
             for tx, ty, bx, by in pair_targets:
                 if not (0 <= tx < width and 0 <= ty < height):
                     continue
-                blocked_behind_target = (
-                    0 <= bx < width and 0 <= by < height and grid[by][bx] != EMPTY
+                target = grid[ty][tx]
+                if target not in (enemy, FRUIT):
+                    continue
+                blocked_behind_target = _target_is_defended(
+                    grid, width, height, target, bx, by
                 )
-                if grid[ty][tx] in (enemy, FRUIT) and not blocked_behind_target:
+                if not blocked_behind_target:
                     captured.add((tx, ty))
     return captured
+
+
+def _target_is_defended(
+    grid: list[list[int]], width: int, height: int, target: int, x: int, y: int
+) -> bool:
+    if not (0 <= x < width and 0 <= y < height):
+        return False
+    behind = grid[y][x]
+    if behind == OBSTACLE:
+        return True
+    if target in (PLAYER_A, PLAYER_B):
+        return behind == target
+    return False
 
 
 def _choose_obstacles(width: int, height: int, count: int, rng: random.Random) -> tuple[Coord, ...]:
