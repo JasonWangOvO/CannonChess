@@ -75,6 +75,55 @@ class CoreRulesTest(unittest.TestCase):
         self.assertEqual(next_state.cell((1, 3)), PLAYER_A)
         self.assertEqual(next_state.last_captured, ())
 
+    def test_static_aligned_pair_does_not_capture_after_other_piece_moves(self):
+        state = state_from_top_rows(
+            [
+                [PLAYER_A, EMPTY, EMPTY, EMPTY],
+                [EMPTY, PLAYER_A, EMPTY, EMPTY],
+                [EMPTY, PLAYER_B, EMPTY, EMPTY],
+                [EMPTY, PLAYER_B, EMPTY, PLAYER_B],
+                [EMPTY, EMPTY, EMPTY, EMPTY],
+            ],
+            current=PLAYER_B,
+        )
+
+        next_state = apply_move(state, Move((3, 1), (3, 0)))
+
+        self.assertEqual(next_state.cell((1, 3)), PLAYER_A)
+        self.assertEqual(next_state.last_captured, ())
+
+    def test_moved_piece_cannot_capture_through_enemy_backed_by_piece(self):
+        state = state_from_top_rows(
+            [
+                [PLAYER_A, EMPTY, EMPTY],
+                [EMPTY, PLAYER_A, EMPTY],
+                [EMPTY, PLAYER_B, EMPTY],
+                [EMPTY, PLAYER_B, EMPTY],
+            ],
+            current=PLAYER_A,
+        )
+
+        next_state = apply_move(state, Move((0, 3), (1, 3)))
+
+        self.assertEqual(next_state.cell((1, 1)), PLAYER_B)
+        self.assertEqual(next_state.last_captured, ())
+
+    def test_moved_piece_cannot_capture_through_enemy_backed_by_obstacle(self):
+        state = state_from_top_rows(
+            [
+                [PLAYER_A, EMPTY, EMPTY],
+                [EMPTY, PLAYER_A, EMPTY],
+                [EMPTY, PLAYER_B, EMPTY],
+                [EMPTY, OBSTACLE, EMPTY],
+            ],
+            current=PLAYER_A,
+        )
+
+        next_state = apply_move(state, Move((0, 3), (1, 3)))
+
+        self.assertEqual(next_state.cell((1, 1)), PLAYER_B)
+        self.assertEqual(next_state.last_captured, ())
+
     def test_draw_after_fifty_moves_without_capture(self):
         state = state_from_top_rows(
             [

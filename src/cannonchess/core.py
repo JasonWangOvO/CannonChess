@@ -143,7 +143,7 @@ def apply_move(state: GameState, move: Move) -> GameState:
     grid[sy][sx] = EMPTY
     grid[dy][dx] = player
 
-    captured = _captured_after_move(grid, player)
+    captured = _captured_after_move(grid, player, move.dst)
     for x, y in captured:
         grid[y][x] = EMPTY
 
@@ -207,27 +207,34 @@ def _with_game_result(state: GameState) -> GameState:
     return state
 
 
-def _captured_after_move(grid: list[list[int]], player: int) -> set[Coord]:
+def _captured_after_move(
+    grid: list[list[int]], player: int, moved_to: Coord
+) -> set[Coord]:
     enemy = opponent(player)
     height = len(grid)
     width = len(grid[0])
     captured: set[Coord] = set()
+    x, y = moved_to
 
-    for y in range(height):
-        for x in range(width):
-            if grid[y][x] != player:
+    for ax, ay in CAPTURE_AXES:
+        for side in (-1, 1):
+            nx, ny = x + side * ax, y + side * ay
+            if not (0 <= nx < width and 0 <= ny < height):
                 continue
-            for ax, ay in CAPTURE_AXES:
-                nx, ny = x + ax, y + ay
-                if not (0 <= nx < width and 0 <= ny < height):
-                    continue
-                if grid[ny][nx] != player:
-                    continue
-                before = (x - ax, y - ay)
-                after = (x + 2 * ax, y + 2 * ay)
-                for tx, ty in (before, after):
-                    if 0 <= tx < width and 0 <= ty < height and grid[ty][tx] == enemy:
-                        captured.add((tx, ty))
+            if grid[ny][nx] != player:
+                continue
+            tx, ty = x - side * ax, y - side * ay
+            bx, by = x - 2 * side * ax, y - 2 * side * ay
+            blocked_behind_target = (
+                0 <= bx < width and 0 <= by < height and grid[by][bx] != EMPTY
+            )
+            if (
+                0 <= tx < width
+                and 0 <= ty < height
+                and grid[ty][tx] == enemy
+                and not blocked_behind_target
+            ):
+                captured.add((tx, ty))
     return captured
 
 
